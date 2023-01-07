@@ -9,9 +9,10 @@ uniform float uTranslationX;
 
 void main() {
 
+	// pass color to the fragment shader
+	fragColor	= vec4( aVertexColor, 1.f );
 
-	fragColor = vec4(aVertexColor, 1.f);
-
-	gl_Position = vec4(aVertexPosition.x + uTranslationX, aVertexPosition.y, 0.f, 1.f);
+	// pass the position with the translation applied
+	gl_Position = vec4( aVertexPosition.x + uTranslationX, aVertexPosition.y, 0.f, 1.f );
 
 }

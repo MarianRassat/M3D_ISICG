@@ -26,7 +26,29 @@ namespace M3D_ISICG
 		std::cout << "Initializing lab work 3..." << std::endl;
 		// Set the color used by glClear to clear the color buffer (in render()).
 		glClearColor( _bgColor.x, _bgColor.y, _bgColor.z, _bgColor.w );
+		glEnable( GL_DEPTH_TEST ); // depth test is now enabled, we draw 3D triangles
+		
+		_program = glCreateProgram();
 
+		if (!_initShaders()) {
+			return false;
+		}
+
+		createCube();
+
+		_initCamera();
+
+		// get matrix uniform locations
+		_uViewMatrix = glGetUniformLocation( _program, "uViewMatrix" );
+		_uProjMatrix = glGetUniformLocation( _program, "uProjMatrix" );
+
+		glUseProgram( _program );
+
+		std::cout << "Done!" << std::endl;
+		return true;
+	}
+
+	bool LabWork3::_initShaders() {
 		const std::string vertShaderFile = readFile( _shaderFolder + "lw3.vert" );
 		const std::string fragShaderFile = readFile( _shaderFolder + "lw3.frag" );
 
@@ -41,7 +63,6 @@ namespace M3D_ISICG
 
 		glCompileShader( vertShader );
 		glCompileShader( fragShader );
-
 
 		// Check for errors in compilation
 		GLint compiled;
@@ -66,9 +87,6 @@ namespace M3D_ISICG
 			return false;
 		}
 
-
-		_program = glCreateProgram();
-
 		glAttachShader( _program, vertShader );
 		glAttachShader( _program, fragShader );
 
@@ -78,7 +96,7 @@ namespace M3D_ISICG
 		glGetProgramiv( _program, GL_LINK_STATUS, &linked );
 		if ( !linked )
 		{
-			GLchar						  log[ 1024 ];
+			GLchar log[ 1024 ];
 			glGetProgramInfoLog( _program, sizeof( log ), NULL, log );
 			std ::cerr << " Error linking program : " << log << std ::endl;
 			return false;
@@ -86,45 +104,34 @@ namespace M3D_ISICG
 
 		glDeleteShader( vertShader );
 		glDeleteShader( fragShader );
-
-		glEnable( GL_DEPTH_TEST );
-
-		createCube();
-
-		_initCamera();
-
-		_uViewMatrix = glGetUniformLocation( _program, "uViewMatrix" );
-		_uProjMatrix = glGetUniformLocation( _program, "uProjMatrix" );
-
-		glUseProgram( _program );
-
-		std::cout << "Done!" << std::endl;
-		return true;
 	}
 
 	void LabWork3::animate( const float p_deltaTime ) {
 
+		// create the rotation matrix
 		_cube.transformation = glm::rotate( _cube.transformation, p_deltaTime, Vec3f( 0.f, 1.f, 1.f ) );
 
-		if (_updateFov) {
-			_camera.setFovy( _fov );
-		}
-
+		// pass the matrix to the shader
 		glProgramUniformMatrix4fv( _program, _uTransformMatrix, 1, false, glm::value_ptr( _cube.transformation ) );
 
 	}
 
 	void LabWork3::render() {
 
+		// update the camera's matrix's uniforms
 		_updateViewMatrix();
 		_updateProjMatrix();
 
+		// clear depth and color buffers
 		glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
+		// use the cube's vao
 		glBindVertexArray( _cube.vao );
 
+		// draw it
 		glDrawElements( GL_TRIANGLES, (GLsizei)(_cube.triangles.size()), GL_UNSIGNED_INT, 0 );
 
+		// unbind the vao
 		glBindVertexArray( 0 );
 
 	}
@@ -175,38 +182,12 @@ namespace M3D_ISICG
 	void LabWork3::displayUI()
 	{
 		ImGui::Begin( "Settings lab work 3" );
-		_updateFov = ImGui::SliderFloat( "FOV", &_fov, 30, 120, "%.0f", 1 );
+
+		if (ImGui::SliderFloat("FOV", &_fov, 30, 120, "%.0f", 1)) {
+			_camera.setFovy( _fov );
+		}
+
 		ImGui::End();
-	}
-
-	void LabWork3::createPolygon( Vec2f center, int nb_edges, float radius ) { 
-		_points.push_back( Vec2f(center) );
-		_pointColors.push_back( getRandomVec3f() );
-
-		if (nb_edges < 3) {
-			nb_edges = 3;
-		}
-
-		_points.push_back( Vec2f(1, 0) * radius + center);
-		_pointColors.push_back( getRandomVec3f() );
-
-		for (int i = 1; i < nb_edges; i++) {
-
-			_points.push_back( 
-				Vec2f(	
-					glm::cos( 2*glm::pi<float>() / nb_edges * (float)i ),
-					glm::sin( 2*glm::pi<float>() / nb_edges * (float)i ) 
-				) * radius + center
-			);
-
-			_pointColors.push_back( getRandomVec3f() );
-
-			_triangles.push_back( Vec3i( i, 0, i+1 ) );
-
-		}
-
-		_triangles.push_back( Vec3i( nb_edges, 0, 1 ) );
-
 	}
 
 	void LabWork3::createCube()

@@ -32,6 +32,7 @@ namespace M3D_ISICG
 
 	  private:
 
+		bool _initSSAOSamples();
 		bool _initSkyboxPass();
 		bool _initGeometryPass();
 		bool _initSkyboxVAO();
@@ -42,6 +43,7 @@ namespace M3D_ISICG
 		bool _initShadowMapping();
 		void _updateShaders();
 
+		void _skyboxPass();
 		void _geometryPass();
 		void _shadingPass();
 		void _shadowPass();
@@ -74,7 +76,7 @@ namespace M3D_ISICG
 		GLuint _uSpecularType;
 		
 		float  _cameraSpeed = 1;
-		float  _cameraSensitivity = 0.1;
+		float  _cameraSensitivity = 0.1f;
 		
 		GLuint _uMVP;
 		GLuint _uNormalMatrix;
@@ -112,8 +114,8 @@ namespace M3D_ISICG
 
 		// ================
 		// ================ Shadow mapping
-		int SHADOWMAP_WIDTH = 1000;
-		int	SHADOWMAP_HEIGHT = 1000;
+		int SHADOWMAP_WIDTH = 3000;
+		int	SHADOWMAP_HEIGHT = 3000;
 		GLuint _shadowMappingFBO;
 		GLuint _shadowMappingTexture;
 		GLuint _shadowMappingDepthTexture;
@@ -124,18 +126,35 @@ namespace M3D_ISICG
 		// ================
 		// ================ Skybox
 		std::vector<std::string> _skyboxFaces = { 
-			"./data/models/skybox/right.jpg", 
-			"./data/models/skybox/left.jpg", 
-			"./data/models/skybox/top.jpg", 
-			"./data/models/skybox/bottom.jpg", 
-			"./data/models/skybox/front.jpg", 
-			"./data/models/skybox/back.jpg"
+			"data/models/skybox/posx.jpg", // right
+			"data/models/skybox/negx.jpg", // left
+			"data/models/skybox/posy.jpg", // top
+			"data/models/skybox/negy.jpg", // bottom
+			"data/models/skybox/posz.jpg", // back
+			"data/models/skybox/negz.jpg"  // front
 		};
 		GLuint _skyboxCubemap;
+		GLuint _skyboxProgram;
+		GLuint _uVPMatrix;
+		GLuint _uSkybox;
+		GLuint _uSkyboxCameraPos;
+
+		unsigned int _sizeEBO;
 
 		GLuint _vboSkybox;
 		GLuint _vaoSkybox;
 		GLuint _eboSkybox;
+
+		// ================
+		// ================ SSAO
+		
+		std::vector<Vec3f> _SSAOSamples;
+		int				   _SSAOSampleSize = 128;
+
+		GLuint _uSSAOSamples;
+		GLuint _uSSAOSampleSize;
+		GLuint _uVP;
+
 		//=================
 		// ================ Settings.
 		Vec4f _bgColor = Vec4f( 0.8f, 0.8f, 0.8f, 1.f ); // Background color

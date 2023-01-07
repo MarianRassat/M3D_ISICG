@@ -13,8 +13,6 @@
 	layout( binding = 3 ) uniform sampler2D uShininessMap;
 	layout( binding = 4 ) uniform sampler2D uNormalMap;
 	
-	layout( binding = 5 ) uniform samplerCube uSkybox;
-	
 	uniform int uHasAmbientMap;
 	uniform int uHasDiffuseMap;
 	uniform int uHasSpecularMap;

@@ -33,12 +33,15 @@ namespace M3D_ISICG
 		// Set the color used by glClear to clear the color buffer (in render()).
 		glClearColor( _bgColor.x, _bgColor.y, _bgColor.z, _bgColor.w );
 
-		_mesh.load( "Conference", "./data/models/sponza.obj" );
+		_mesh.load( "Sponza", "./data/models/sponza.obj" );
 		_mesh._transformation = glm::scale( _mesh._transformation, Vec3f(0.003, 0.003, 0.003) );
 
 		glEnable( GL_DEPTH_TEST );
 
 		_initCamera();
+
+		if ( !_initShaders() )
+			return false;
 
 		if ( !_initGeometryPass() )
 			return false;
@@ -54,10 +57,6 @@ namespace M3D_ISICG
 	}
 
 	bool LabWork6::_initGeometryPass() {
-		glUseProgram( _geometryPassProgram );
-
-		if ( !_initShaders() )
-			return false;
 
 		_uMVP		   = glGetUniformLocation(  _geometryPassProgram, "uMVPMatrix" );
 		_uMV		   = glGetUniformLocation(  _geometryPassProgram, "uMVMatrix" );
@@ -69,12 +68,14 @@ namespace M3D_ISICG
 	}
 
 	bool LabWork6::_initGBuffer() {
-
+		
+		// get the size needed for the fbo
 		_fboSize[ 0 ] = this->getWindowWidth();
 		_fboSize[ 1 ] = this->getWindowHeight();
 		
 		glCreateFramebuffers( 1, &_fbo );
 
+		// create all of our textures
 		glCreateTextures( GL_TEXTURE_2D, 6, _gBufferTextures );
 
 		glTextureStorage2D( _gBufferTextures[ 0 ], 1, GL_RGB32F,  this->getWindowWidth(), this->getWindowHeight() );
@@ -82,22 +83,23 @@ namespace M3D_ISICG
 		glTextureStorage2D( _gBufferTextures[ 2 ], 1, GL_RGB32F,  this->getWindowWidth(), this->getWindowHeight() );
 		glTextureStorage2D( _gBufferTextures[ 3 ], 1, GL_RGB32F,  this->getWindowWidth(), this->getWindowHeight() );
 		glTextureStorage2D( _gBufferTextures[ 4 ], 1, GL_RGBA32F, this->getWindowWidth(), this->getWindowHeight() );
+		glTextureStorage2D( _gBufferTextures[ 5 ], 1, GL_DEPTH_COMPONENT32F, this->getWindowWidth(), this->getWindowHeight() );
 
-		glTextureStorage2D( _gBufferTextures[ 5 ], 1, GL_DEPTH_COMPONENT32F,	  this->getWindowWidth(), this->getWindowHeight() );
-
+		// bind textures to fbo
 		glNamedFramebufferTexture( _fbo, GL_COLOR_ATTACHMENT0, _gBufferTextures[ 0 ], 0 );
 		glNamedFramebufferTexture( _fbo, GL_COLOR_ATTACHMENT1, _gBufferTextures[ 1 ], 0 );
 		glNamedFramebufferTexture( _fbo, GL_COLOR_ATTACHMENT2, _gBufferTextures[ 2 ], 0 );
 		glNamedFramebufferTexture( _fbo, GL_COLOR_ATTACHMENT3, _gBufferTextures[ 3 ], 0 );
 		glNamedFramebufferTexture( _fbo, GL_COLOR_ATTACHMENT4, _gBufferTextures[ 4 ], 0 );
-
 		glNamedFramebufferTexture( _fbo, GL_DEPTH_ATTACHMENT , _gBufferTextures[ 5 ], 0 );
 		
 		GLenum buffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2,
 							 GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4 };
 
+		// say which buffers to draw to
 		glNamedFramebufferDrawBuffers( _fbo, 5, buffers );
 
+		// check for errors
 		if ( glCheckNamedFramebufferStatus( _fbo, GL_FRAMEBUFFER ) != GL_FRAMEBUFFER_COMPLETE )
 		{
 			std::cerr << "Error during Frame Buffer Object initialization" << std::endl;
@@ -108,7 +110,6 @@ namespace M3D_ISICG
 	}
 
 	bool LabWork6::_initShadingPass() {
-		glUseProgram( _shadingPassProgram );
 
 		_uLightPosition = glGetUniformLocation( _shadingPassProgram, "uLight" );
 		_uSpecularType	= glGetUniformLocation( _shadingPassProgram, "uSpecularType" );
@@ -122,7 +123,7 @@ namespace M3D_ISICG
 		glProgramUniform1i( _shadingPassProgram, _uSpecularType, _specularType );
 
 
-
+		// create the quad
 		_points.push_back( Vec2f( -1, -1 ) );
 		_points.push_back( Vec2f( -1, 1 ) );
 		_points.push_back( Vec2f( 1, 1 ) );
@@ -149,12 +150,13 @@ namespace M3D_ISICG
 
 		glVertexArrayElementBuffer( _vao, _ebo );
 
-
 		return true;
 	}
 
 	bool LabWork6::_initShaders()
 	{
+		// added shading pass frag
+		// no need for a vert shader
 		const std::string fragShadingPassFile = readFile( _shaderFolder + "shading_pass.frag" );
 
 		const std::string vertGeometryPassFile = readFile( _shaderFolder + "geometry_pass.vert" );
@@ -246,10 +248,12 @@ namespace M3D_ISICG
 		glDeleteShader( vertGeometryPassShader );
 		glDeleteShader( fragGeometryPassShader );
 
+		return true;
 	}
 
 	void LabWork6::_updateShaders() { 
 
+		// now delete programs
 		glDeleteProgram( _shadingPassProgram );
 		glDeleteProgram( _geometryPassProgram );
 
@@ -261,15 +265,14 @@ namespace M3D_ISICG
 		glProgramUniform3fv( _geometryPassProgram, _uLightPosition, 1, glm::value_ptr( _lightPosition ) );
 		glProgramUniform1i ( _geometryPassProgram, _uSpecularType, _specularType );
 
-
 	}
 
 	void LabWork6::animate( const float p_deltaTime ) {
 		
 
 		// Handle camera movements
-		float multiplier = capslock_pr ? 3 : 1;
-		multiplier		 = lctrl_pr ? 0.2 : multiplier;
+		float multiplier = capslock_pr ? 3.f : 1.f;
+		multiplier		 = lctrl_pr ? 0.2f : multiplier;
 		if ( w_pr )
 			_camera.moveFront( _cameraSpeed * multiplier * p_deltaTime );
 		if ( s_pr )
@@ -283,23 +286,21 @@ namespace M3D_ISICG
 		if ( lsh_pr )
 			_camera.moveUp( -_cameraSpeed * multiplier * p_deltaTime );
 
-		if (_updateFov) {
-			_camera.setFovy( _fov );
-		}
-
 	}
 
 	void LabWork6::render() {
 
+		// do the geometry pass, then the shading pass
 		_geometryPass();
 
 		if (_renderGBuffer) {
+
 			glNamedFramebufferReadBuffer( _fbo, _bufferTypes[ _selectedBuffer ] );
 			glBlitNamedFramebuffer( _fbo,
 								0,
 								0, 0,
 								getWindowWidth(), getWindowHeight(),
-								0,0,
+								0, 0,
 								getWindowWidth(), getWindowHeight(),
 								GL_COLOR_BUFFER_BIT,
 								GL_NEAREST );
@@ -314,11 +315,14 @@ namespace M3D_ISICG
 
 	void LabWork6::_geometryPass() {
 
-		glEnable( GL_DEPTH_TEST );
+		glEnable( GL_DEPTH_TEST ); // enable the depth test
 		
+		// bind fbo
 		glBindFramebuffer( GL_DRAW_FRAMEBUFFER, _fbo );
+		// clear fbo colors & depth
 		glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
+		// pass uniforms
 		_V				= _camera.getViewMatrix();
 		_MV				= _camera.getViewMatrix() * _mesh._transformation;
 		_MVP			= _camera.getProjectionMatrix() * _MV;
@@ -329,28 +333,29 @@ namespace M3D_ISICG
 		glProgramUniformMatrix4fv( _geometryPassProgram, _uMVP,			 1, false, glm::value_ptr( _MVP ) );
 		glProgramUniformMatrix4fv( _geometryPassProgram, _uNormalMatrix, 1, false, glm::value_ptr( _NormalMatrix ) );
 
+		// render geometry
 		_mesh.render( _geometryPassProgram );
 
-		
-		
-
+		// unbind fbo
 		glBindFramebuffer( GL_DRAW_FRAMEBUFFER, 0 );
-		glBindVertexArray( 0 );
 
 	}
 
-	
 	void LabWork6::_shadingPass() { 
 
 		glUseProgram( _shadingPassProgram );
 
+		// bind default fbo
 		glBindFramebuffer( GL_DRAW_FRAMEBUFFER, 0 );
 
+		// bind quad vao
 		glBindVertexArray( _vao );
 
+		// disable depth; clear colors
 		glDisable( GL_DEPTH_TEST );
-		glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+		glClear( GL_COLOR_BUFFER_BIT );
 		
+		// just bind the textures and pass the uniform
 		glBindTextureUnit( 0, _gBufferTextures[ 0 ] );
 		glBindTextureUnit( 1, _gBufferTextures[ 1 ] );
 		glBindTextureUnit( 2, _gBufferTextures[ 2 ] );
@@ -364,7 +369,7 @@ namespace M3D_ISICG
 							 1,
 							 glm::value_ptr( lightPosViewSpace ) );
 
-		
+		// then draw the quad
 		glDrawElements( GL_TRIANGLES, (GLsizei)( 3 * _triangles.size() ), GL_UNSIGNED_INT, 0 );
 
 	}
@@ -438,14 +443,6 @@ namespace M3D_ISICG
 			}
 		}
 
-		if ( p_event.type == SDL_MOUSEBUTTONUP ) {
-			switch ( p_event.button.button ) {
-
-			default: 
-				break;
-			}
-			
-		}
 
 		// Rotate when left click + motion
 		if ( rotate_camera && p_event.type == SDL_MOUSEMOTION )
@@ -459,11 +456,13 @@ namespace M3D_ISICG
 		ImGui::Begin( "Settings lab work 6" );
 		
 		#pragma region FOV Slider
-			_updateFov = ImGui::SliderFloat( "FOV", &_fov, 30, 120, "%.0f", 1 );
+		if (ImGui::SliderFloat("FOV", &_fov, 30, 120, "%.0f", 1)) {
+			_camera.setFovy( _fov );
+		}
 		#pragma endregion
 
 		#pragma region Light position selector
-		if ( ImGui::DragFloat3( "Light position", glm::value_ptr( _lightPosition ), 0.05, -10, 10, "%.2f", 1 ) )
+		if ( ImGui::DragFloat3( "Light position", glm::value_ptr( _lightPosition ), 0.05f, -10, 10, "%.2f", 1 ) )
 		{
 			glProgramUniform3fv( _shadingPassProgram, _uLightPosition, 1, glm::value_ptr( _lightPosition ) );
 		}
@@ -471,7 +470,7 @@ namespace M3D_ISICG
 
 		#pragma region Camera position selector
 		Vec3f camPos = _camera.getPosition();
-		if ( ImGui::DragFloat3( "Camera position", glm::value_ptr( camPos ), 0.05, -10.f, 10.f, "%.2f", 1 ) )
+		if ( ImGui::DragFloat3( "Camera position", glm::value_ptr( camPos ), 0.05f, -10.f, 10.f, "%.2f", 1 ) )
 		{
 			_camera.setPosition( camPos );
 		}
@@ -522,17 +521,10 @@ namespace M3D_ISICG
 			text.append( _bufferTypesNames[ _selectedBuffer ] );
 			text.append( " )" );
 
-			ImGui::ListBox( text.c_str(), &_selectedBuffer, _bufferTypesNames, 6 );
+			ImGui::ListBox( text.c_str(), &_selectedBuffer, _bufferTypesNames, 5 );
 		}
 
-		
-		
 		#pragma endregion
-
-
-		
-
-
 
 		ImGui::End();
 	}
@@ -547,6 +539,7 @@ namespace M3D_ISICG
 	void LabWork6::resize( int p_width, int p_height )
 	{ 
 		
+		// handle window resizing because of the FBO
 		if ( p_width != _fboSize[ 0 ] || p_height != _fboSize[ 1 ] ) {
 			_windowWidth  = p_width;
 			_windowHeight = p_height;

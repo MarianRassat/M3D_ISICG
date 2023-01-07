@@ -21,6 +21,8 @@ namespace M3D_ISICG
 		void handleEvents( const SDL_Event & p_event ) override;
 		void displayUI() override;
 
+		bool _initShaders();
+		bool _initVAO();
 		void createPolygon( Vec2f center, int nb_edges, float radius );
 
 	  private:
@@ -39,8 +41,6 @@ namespace M3D_ISICG
 
 		float _time;
 		float _luminosity;
-		bool  _updateLuminosity;
-		bool  _updateBgColor;
 
 		std::vector<Vec2f> _points;
 		std::vector<Vec3f> _pointColors;

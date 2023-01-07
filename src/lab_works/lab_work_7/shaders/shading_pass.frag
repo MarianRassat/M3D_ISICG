@@ -10,11 +10,14 @@ layout ( binding = 4 ) uniform sampler2D uSpecular;
 layout ( binding = 5 ) uniform sampler2D uShadowMap;
 
 // matrices
+uniform mat4 uVP;
 uniform mat4 uDepthVP; // Only View Proj because model is aldready applied to uPosition
 
 // Vectors
 uniform vec3 uLight;
 uniform vec3 uCamera;
+uniform vec3[128] uSSAOSamples;
+uniform int uSSAOSampleSize;
 
 // Options
 uniform int uSpecularType;
@@ -64,10 +67,13 @@ void main()
 
 		float fragShadowMap = texelFetch( uShadowMap, coords * 3, 0 ).x / 5;
 
+		bool fragIsSkybox = fragShininess == -1;
+
 	// parameters
 		vec3 fragToLight    = uLight - fragPosition  ;
 		vec3 fragToLightVec = normalize( fragToLight   );
-		vec3 fragToCamVec   = normalize( uCamera - fragPosition );
+		vec3 fragToCam   = uCamera - fragPosition;
+		vec3 fragToCamVec   = normalize( fragToCam );
 
 	// make the normal face the CAMERA
 		fragNormal = dot( fragNormal , fragToCamVec ) < 0 ? -fragNormal : fragNormal;
@@ -75,34 +81,40 @@ void main()
 
 
 // ========================= Compute lighting
+	vec3 ambientComponent;
+	vec3 specularComponent;
+	vec3 diffuseComponent;
 
 	// ambient color
-		vec3 ambientComponent = fragDiffuse * 0.1;
+		ambientComponent = fragIsSkybox ? fragAmbient : fragDiffuse * 0.25;
 
 	// diffuse component
-		// consider the normal / light cos(angle) for the diffuse component ( Phong )
-		vec3 diffuseComponent = fragDiffuse * max( dot( fragToLightVec, fragNormal ), 0 );
-	
-		 ambientComponent += diffuseComponent * 0.5;
+		if (!fragIsSkybox) {
+			// consider the normal / light cos(angle) for the diffuse component ( Phong )
+			diffuseComponent = fragDiffuse * max( dot( fragToLightVec, fragNormal ), 0 );
+		}
 	// specular component
-		vec3 specularComponent = fragSpecular;
-		// apply the right specular type
-		switch ( uSpecularType ) {
-		case 0: // None
-			specularComponent = vec3(0);
-			break;
+	
+		if (!fragIsSkybox) {
+			specularComponent = fragSpecular;
+			// apply the right specular type
+			switch ( uSpecularType ) {
+			case 0: // None
+				specularComponent = vec3(0);
+				break;
 
-		case 1: // Phong
-			specularComponent *= pow( max( dot( reflect( -fragToLightVec, fragNormal ), fragToCamVec ), 0 ), fragShininess );
-			break;
+			case 1: // Phong
+				specularComponent *= pow( max( dot( reflect( -fragToLightVec, fragNormal ), fragToCamVec ), 0 ), fragShininess );
+				break;
 
-		case 2: // Blinn
-			// the half vector is in the middle of the frag->camera / frag->light vectors
-			vec3 half_vec		=  normalize( fragToLightVec + fragToCamVec ); // H = normalize(L + V)
-			// consider its cos( angle ) with the normal
-			specularComponent  *= pow( max( dot( normalize( half_vec ), fragNormal ), 0 ), fragShininess );
-			break;
+			case 2: // Blinn
+				// the half vector is in the middle of the frag->camera / frag->light vectors
+				vec3 half_vec		=  normalize( fragToLightVec + fragToCamVec ); // H = normalize(L + V)
+				// consider its cos( angle ) with the normal
+				specularComponent  *= pow( max( dot( normalize( half_vec ), fragNormal ), 0 ), fragShininess );
+				break;
 
+			}
 		}
 
 
@@ -112,10 +124,9 @@ void main()
 	shadowCoords /= shadowCoords.w; // normalize for perspective
 	shadowCoords = shadowCoords * 0.5 + 0.5; // get back to [0, 1]
 
-	float depthBias = 0.0002f;
+	float depthBias = 0.0001 + pow( length(fragToCam)/2000, 2.5 );
 
 	float realDistance = shadowCoords.z;
-
 	
 	float shadowMinDepthForFrag = texture( uShadowMap, shadowCoords.xy ).x;
 	if (shadowCoords.x < 0 || shadowCoords.x > 1 || shadowCoords.y < 0 || shadowCoords.y > 1) {
@@ -135,7 +146,7 @@ void main()
 
 // ========================= God rays
 
-	vec3 godray_color = vec3(0.08, 0.08, 0.12) * 1.2;
+	vec3 godray_color = vec3(0.08, 0.08, 0.12);
 	float godray_nb = 0;
 	vec2 texelSize = 1. / textureSize( uShadowMap, 0 );
 	
@@ -152,34 +163,61 @@ void main()
 		pt_shadow /= pt_shadow.w; // normalize for perspective
 		pt_shadow = pt_shadow * 0.5 + 0.5; // get back to [0, 1]
 
-		float nb_for_point = 0;
 
-		for (int x_bias = -1; x_bias <= 1; x_bias++) {
-			for (int y_bias = -1; y_bias <= 1; y_bias++) {
-				
-				if (!(pt_shadow.x < 0 || pt_shadow.x > 1 || pt_shadow.y < 0 || pt_shadow.y > 1)) {
-					float depth = texture( uShadowMap, pt_shadow.xy + vec2(x_bias, y_bias) * texelSize ).x;
-					nb_for_point += pt_shadow.z - depthBias < depth ? 1 : 0;
-				}
-
-			}
+		if (!(pt_shadow.x < 0 || pt_shadow.x > 1 || pt_shadow.y < 0 || pt_shadow.y > 1)) {
+			float depth = texture( uShadowMap, pt_shadow.xy ).x;
+			godray_nb += pt_shadow.z - depthBias < depth ? 1 : 0;
 		}
-		godray_nb += nb_for_point / 9;
+
 
 	}
 
 	float godray_factor = smoothstep( 0, steps, godray_nb );
 	
-// ========================= Results
+// ========================= SSAO
 
-	outColor = vec4( ambientComponent
-					+ diffuseComponent * shadow //* pow( 1 / length(fragToLight), 0.5 )
-					+ specularComponent * shadow //* pow( 1 / length(fragToLight), 0.5 )
+	float occlusion = 0.0;
+	if (!fragIsSkybox) {
+
+		float SSAOBias = 0.00005;
+
+		float maxLengthSample = 0.1;
+
+
+		for(int i = 0; i < uSSAOSampleSize; ++i)
+		{
+			vec3 samplePosWorld = fragPosition + uSSAOSamples[i] * maxLengthSample;
+    
+			// get clip space position, to in turn get depth
+			vec4 samplePos = uVP * vec4(samplePosWorld, 1.);
+			samplePos /= samplePos.w;						// take into account perspective
+			// if the pixel isn't part of the skybox then get the depth
+			vec2 sampleTexCoords = samplePos.xy * 0.5 + 0.5;
+			if ( texture( uSpecular, sampleTexCoords ).w != -1 ) {
+				vec3 sampleTruePosWorld = texture(uPosition, (samplePos * 0.5 + 0.5).xy).xyz;
+				vec4 sampleTruePos = uVP * vec4( sampleTruePosWorld, 1.);
+				sampleTruePos /= sampleTruePos.w; // take into account perspective
+
+				float sampleTrueDepth = sampleTruePos.z;
+				float sampleDepth = samplePos.z;
+
+				float sampleTrueDist = length(sampleTruePosWorld - uCamera);
+				float sampleDist	 = length(samplePosWorld     - uCamera);
+
+				float rangeFactor = smoothstep(0., 1., maxLengthSample / abs(sampleTrueDist - sampleDist) );
+
+				occlusion += (sampleTrueDepth <= sampleDepth - SSAOBias ? 1. : 0.) * rangeFactor;
+			}
+		}
+		occlusion /= uSSAOSampleSize;
+	}
+	occlusion = 1 - occlusion;
+
+// ========================= Results
+	outColor = vec4( ambientComponent * occlusion
+					+ diffuseComponent * shadow
+					+ specularComponent * shadow
 				    + godray_factor * godray_color
 					, 1. );
 
-	if (fragShadowMap > 0.001) {
-		outColor = vec4(fragShadowMap.xxx, 1.);
-	}
-	
 }

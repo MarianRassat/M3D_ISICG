@@ -27,19 +27,19 @@ namespace M3D_ISICG
 		std::cout << "Initializing lab work 5..." << std::endl;
 		// Set the color used by glClear to clear the color buffer (in render()).
 		glClearColor( _bgColor.x, _bgColor.y, _bgColor.z, _bgColor.w );
+		glEnable( GL_DEPTH_TEST );
+		_program = glCreateProgram();
  
-		_mesh.load( "Conference", "./data/models/conference.obj" );
+		_mesh.load( "Conference", "./data/models/sponza.obj" );
 		_mesh._transformation = glm::scale( _mesh._transformation, Vec3f(0.003, 0.003, 0.003) );
 
 		if (!_initShaders()) {
 			return false;
 		}
 
-		glEnable( GL_DEPTH_TEST );
+		glUseProgram( _program );
 
 		_initCamera();
-
-		glUseProgram( _program );
 
 		
 		_uMVP		   = glGetUniformLocation( _program, "uMVPMatrix" );
@@ -49,10 +49,10 @@ namespace M3D_ISICG
 
 		_uLightPosition = glGetUniformLocation( _program, "uLightPosition" );
 		_uSpecularType	= glGetUniformLocation( _program, "uSpecularType" );
+
 		_lightPosition	= Vec3f( 1, 1, 1 );
 
 		
-		glProgramUniform3fv( _program, _uLightPosition, 1, glm::value_ptr( _lightPosition ) );
 		glProgramUniform3fv( _program, _uLightPosition, 1, glm::value_ptr( _lightPosition ) );
 		glProgramUniform1i( _program, _uSpecularType, _specularType );
 
@@ -99,8 +99,6 @@ namespace M3D_ISICG
 			return false;
 		}
 
-		_program = glCreateProgram();
-
 		glAttachShader( _program, _vertShader );
 		glAttachShader( _program, _fragShader );
 
@@ -116,6 +114,7 @@ namespace M3D_ISICG
 			return false;
 		}
 
+		return true;
 		
 
 	}
@@ -140,8 +139,8 @@ namespace M3D_ISICG
 		
 
 		// Handle camera movements
-		float multiplier = capslock_pr ? 3 : 1;
-		multiplier		 = lctrl_pr ? 0.2 : multiplier;
+		float multiplier = capslock_pr ? 3.f : 1.f;
+		multiplier		 = lctrl_pr ? 0.2f : multiplier;
 		if ( w_pr )
 			_camera.moveFront( _cameraSpeed * multiplier * p_deltaTime );
 		if ( s_pr )
@@ -252,14 +251,6 @@ namespace M3D_ISICG
 			}
 		}
 
-		if ( p_event.type == SDL_MOUSEBUTTONUP ) {
-			switch ( p_event.button.button ) {
-
-			default: 
-				break;
-			}
-			
-		}
 
 		// Rotate when left click + motion
 		if ( rotate_camera && p_event.type == SDL_MOUSEMOTION )
@@ -274,12 +265,12 @@ namespace M3D_ISICG
 
 		_updateFov = ImGui::SliderFloat( "FOV", &_fov, 30, 120, "%.0f", 1 );
 		
-		if ( ImGui::DragFloat3( "Light position", glm::value_ptr( _lightPosition ), 0.05, -10, 10, "%.2f", 1 ) )
+		if ( ImGui::DragFloat3( "Light position", glm::value_ptr( _lightPosition ), 0.05f, -10, 10, "%.2f", 1 ) )
 		{
 			glProgramUniform3fv( _program, _uLightPosition, 1, glm::value_ptr( _lightPosition ) );
 		}
 		Vec3f camPos = _camera.getPosition();
-		if (ImGui::DragFloat3("Camera position", glm::value_ptr(camPos), 0.05, -10.f, 10.f, "%.2f", 1)) {
+		if (ImGui::DragFloat3("Camera position", glm::value_ptr(camPos), 0.05f, -10.f, 10.f, "%.2f", 1)) {
 			_camera.setPosition( camPos );
 		}
 
@@ -311,36 +302,6 @@ namespace M3D_ISICG
 		}
 
 		ImGui::End();
-	}
-
-	void LabWork5::createPolygon( Vec2f center, int nb_edges, float radius ) { 
-		_points.push_back( Vec2f(center) );
-		_pointColors.push_back( getRandomVec3f() );
-
-		if (nb_edges < 3) {
-			nb_edges = 3;
-		}
-
-		_points.push_back( Vec2f(1, 0) * radius + center);
-		_pointColors.push_back( getRandomVec3f() );
-
-		for (int i = 1; i < nb_edges; i++) {
-
-			_points.push_back( 
-				Vec2f(	
-					glm::cos( 2*glm::pi<float>() / nb_edges * (float)i ),
-					glm::sin( 2*glm::pi<float>() / nb_edges * (float)i ) 
-				) * radius + center
-			);
-
-			_pointColors.push_back( getRandomVec3f() );
-
-			_triangles.push_back( Vec3i( i, 0, i+1 ) );
-
-		}
-
-		_triangles.push_back( Vec3i( nb_edges, 0, 1 ) );
-
 	}
 
 	void LabWork5::_initCamera() { 

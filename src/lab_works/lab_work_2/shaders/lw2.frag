@@ -2,12 +2,13 @@
 
 in vec4 fragColor;
 
-layout( location = 0 ) out vec4 color;
+layout( location = 0 ) out vec4 outColor;
 
 uniform float uOpacity;
 
 void main() {
 
-	color = fragColor * uOpacity;
+	// take into account opacity
+	outColor = fragColor * uOpacity;
 
 }

@@ -27,6 +27,9 @@ namespace M3D_ISICG
 		std::cout << "Initializing lab work 4..." << std::endl;
 		// Set the color used by glClear to clear the color buffer (in render()).
 		glClearColor( _bgColor.x, _bgColor.y, _bgColor.z, _bgColor.w );
+		glEnable( GL_DEPTH_TEST );
+
+		_program = glCreateProgram();
 
 		//_mesh.load( "Bunny", "./data/models/bunny.obj" );
 		 
@@ -37,26 +40,24 @@ namespace M3D_ISICG
 			return false;
 		}
 
-		glEnable( GL_DEPTH_TEST );
+		glUseProgram( _program );
 
 		_initCamera();
 
-		glUseProgram( _program );
 
-		
+		// get uniforms
 		_uMVP		   = glGetUniformLocation( _program, "uMVPMatrix" );
 		_uMV		   = glGetUniformLocation( _program, "uMVMatrix" );
 		_uV			   = glGetUniformLocation( _program, "uVMatrix" );
 		_uNormalMatrix = glGetUniformLocation( _program, "uNormalMatrix" );
 
 		_uLightPosition = glGetUniformLocation( _program, "uLightPosition" );
-		_ufBlinn = glGetUniformLocation( _program, "ufBlinn" );
+		_uBlinn = glGetUniformLocation( _program, "uBlinn" );
 		_lightPosition	= Vec3f( 1, 1, 1 );
 
 		
 		glProgramUniform3fv( _program, _uLightPosition, 1, glm::value_ptr( _lightPosition ) );
-		glProgramUniform3fv( _program, _uLightPosition, 1, glm::value_ptr( _lightPosition ) );
-		glProgramUniform1i( _program, _ufBlinn, _blinnPhong );
+		glProgramUniform1i( _program, _uBlinn, _blinnPhong );
 
 		std::cout << "Done!" << std::endl;
 		return true;
@@ -101,8 +102,6 @@ namespace M3D_ISICG
 			return false;
 		}
 
-		_program = glCreateProgram();
-
 		glAttachShader( _program, _vertShader );
 		glAttachShader( _program, _fragShader );
 
@@ -118,11 +117,12 @@ namespace M3D_ISICG
 			return false;
 		}
 
-		
+		return true;
 
 	}
 
 	void LabWork4::_updateShaders() { 
+		
 		glDetachShader( _program, _vertShader );
 		glDetachShader( _program, _fragShader );
 
@@ -132,9 +132,7 @@ namespace M3D_ISICG
 		_initShaders();
 
 		glProgramUniform3fv( _program, _uLightPosition, 1, glm::value_ptr( _lightPosition ) );
-		glProgramUniform3fv( _program, _uLightPosition, 1, glm::value_ptr( _lightPosition ) );
-		glProgramUniform1i( _program, _ufBlinn, _blinnPhong );
-
+		glProgramUniform1i( _program, _uBlinn, _blinnPhong );
 
 	}
 
@@ -156,12 +154,6 @@ namespace M3D_ISICG
 			_camera.moveUp( -_cameraSpeed * p_deltaTime );
 
 		if (_updateFov) {
-			_camera.setFovy( _fov );
-		}
-
-
-		if ( _setLightPos )
-		{
 		}
 
 	}
@@ -238,14 +230,17 @@ namespace M3D_ISICG
 	{
 		ImGui::Begin( "Settings lab work 4" );
 
-		_updateFov = ImGui::SliderFloat( "FOV", &_fov, 30, 120, "%.0f", 1 );
+		if (_updateFov = ImGui::SliderFloat( "FOV", &_fov, 30, 120, "%.0f", 1 ))
+		{
+			_camera.setFovy( _fov );
+		}
 		
-		if ( ImGui::DragFloat3( "Light position", glm::value_ptr( _lightPosition ), 0.05, -10, 10, "%.2f", 1 ) )
+		if ( ImGui::DragFloat3( "Light position", glm::value_ptr( _lightPosition ), 0.05f, -10, 10, "%.2f", 1 ) )
 		{
 			glProgramUniform3fv( _program, _uLightPosition, 1, glm::value_ptr( _lightPosition ) );
 		}
 		Vec3f camPos = _camera.getPosition();
-		if (ImGui::DragFloat3("Camera position", glm::value_ptr(camPos), 0.05, -10.f, 10.f, "%.2f", 1)) {
+		if (ImGui::DragFloat3("Camera position", glm::value_ptr(camPos), 0.05f, -10.f, 10.f, "%.2f", 1)) {
 			_camera.setPosition( camPos );
 		}
 
@@ -256,19 +251,19 @@ namespace M3D_ISICG
 
 		if (ImGui::RadioButton("Blinn-Phong", _blinnPhong == 2)) {
 			_blinnPhong = 2;
-			glProgramUniform1i( _program, _ufBlinn, _blinnPhong );
+			glProgramUniform1i( _program, _uBlinn, _blinnPhong );
 		}
 		ImGui::SameLine();
 		if ( ImGui::RadioButton( "Phong", _blinnPhong == 1 ) )
 		{
 			_blinnPhong = 1;
-			glProgramUniform1i( _program, _ufBlinn, _blinnPhong );
+			glProgramUniform1i( _program, _uBlinn, _blinnPhong );
 		}
 		ImGui::SameLine();
 		if ( ImGui::RadioButton( "None", _blinnPhong == 0 ) )
 		{
 			_blinnPhong = 0;
-			glProgramUniform1i( _program, _ufBlinn, _blinnPhong );
+			glProgramUniform1i( _program, _uBlinn, _blinnPhong );
 		}
 
 		if (ImGui::Button("Recompile shaders")) {
@@ -276,36 +271,6 @@ namespace M3D_ISICG
 		}
 
 		ImGui::End();
-	}
-
-	void LabWork4::createPolygon( Vec2f center, int nb_edges, float radius ) { 
-		_points.push_back( Vec2f(center) );
-		_pointColors.push_back( getRandomVec3f() );
-
-		if (nb_edges < 3) {
-			nb_edges = 3;
-		}
-
-		_points.push_back( Vec2f(1, 0) * radius + center);
-		_pointColors.push_back( getRandomVec3f() );
-
-		for (int i = 1; i < nb_edges; i++) {
-
-			_points.push_back( 
-				Vec2f(	
-					glm::cos( 2*glm::pi<float>() / nb_edges * (float)i ),
-					glm::sin( 2*glm::pi<float>() / nb_edges * (float)i ) 
-				) * radius + center
-			);
-
-			_pointColors.push_back( getRandomVec3f() );
-
-			_triangles.push_back( Vec3i( i, 0, i+1 ) );
-
-		}
-
-		_triangles.push_back( Vec3i( nb_edges, 0, 1 ) );
-
 	}
 
 	void LabWork4::_initCamera() { 

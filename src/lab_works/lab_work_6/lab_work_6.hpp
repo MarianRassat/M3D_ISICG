@@ -66,7 +66,7 @@ namespace M3D_ISICG
 		GLuint _uSpecularType;
 		
 		float  _cameraSpeed = 1;
-		float  _cameraSensitivity = 0.1;
+		float  _cameraSensitivity = 0.1f;
 		
 		GLuint _uMVP; GLuint _uMV; GLuint _uNormalMatrix; GLuint _uLightPosition; GLuint _uV;
 		Mat4f  _MVP;  Mat4f  _MV;  Mat4f  _NormalMatrix;  Vec3f  _lightPosition;  Mat4f  _V;

@@ -18,7 +18,6 @@ uniform vec3 uSpecularColor;
 uniform float uShininess;
 
 uniform vec3 uLightPosition;
-uniform int ufBlinn;
 
 out vec3 fragAmbientColor;
 out vec3 fragDiffuseColor;
@@ -28,7 +27,6 @@ out float fragShininess;
 out vec3 fragNormal;
 out vec3 fragPosition;
 out vec3 fragLight;
-out flat int fragBlinn;
 
 
 void main()
@@ -39,8 +37,6 @@ void main()
 	fragSpecularColor = uSpecularColor;
 	fragShininess = uShininess;
 
-	fragBlinn = ufBlinn;
-
 
 	vec4 t_fragNormal = uNormalMatrix * vec4( normalize( aVertexNormal ), 1.);
 	fragNormal = normalize( vec3( t_fragNormal / t_fragNormal.w ) );
@@ -49,7 +45,7 @@ void main()
 	fragPosition = vec3( t_fragPosition / t_fragPosition.w ); // position du frag dans le plan camera
 
 	vec4 t_fragLightPosition = uVMatrix * vec4( uLightPosition, 1. ); // calculer la position de la light dans le plan camera
-	fragLight = vec3( t_fragLightPosition / t_fragLightPosition.w ); // !!!!! vecteur frag->light
+	fragLight = vec3( t_fragLightPosition / t_fragLightPosition.w );  // vecteur frag->light
 
 	gl_Position = uMVPMatrix * vec4( aVertexPosition, 1.f );
 

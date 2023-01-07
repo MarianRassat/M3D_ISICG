@@ -46,9 +46,10 @@ void main()
 	// parameters
 	float shininess_power = uHasShininessMap == 1 ? texture(uShininessMap, fragTexCoords).x : fragShininess;
 	vec3 fragToLight = fragLight - fragPosition ;
+	vec3 fragToCam =  - fragPosition ;
 
-	// make the normal face the light
-	r_fragNormal = dot( r_fragNormal , normalize( fragToLight ) ) < 0 ? -r_fragNormal : r_fragNormal;
+	// make the normal face the camera
+	r_fragNormal = dot( r_fragNormal , normalize( fragToCam ) ) < 0 ? -r_fragNormal : r_fragNormal;
 	r_fragNormal = normalize(r_fragNormal);
 	
 	// consider the normal / light cos(angle)

@@ -26,9 +26,6 @@ namespace M3D_ISICG
 		void handleEvents( const SDL_Event & p_event ) override;
 		void displayUI() override;
 
-		void createPolygon( Vec2f center, int nb_edges, float radius );
-
-
 	  private:
 
 		void _initCamera();
@@ -55,9 +52,9 @@ namespace M3D_ISICG
 		bool   _setLightPos;
 		int   _blinnPhong = 2;
 		bool   _updateBlinn;
-		GLuint _ufBlinn;
+		GLuint _uBlinn;
 		float  _cameraSpeed = 4;
-		float  _cameraSensitivity = 0.1;
+		float  _cameraSensitivity = 0.1f;
 		
 		GLuint _uMVP; GLuint _uMV; GLuint _uNormalMatrix; GLuint _uLightPosition; GLuint _uV;
 		Mat4f  _MVP;  Mat4f  _MV;  Mat4f  _NormalMatrix;  Vec3f  _lightPosition;  Mat4f  _V;

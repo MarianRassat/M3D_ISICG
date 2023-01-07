@@ -38,14 +38,13 @@ namespace M3D_ISICG
 		void handleEvents( const SDL_Event & p_event ) override;
 		void displayUI() override;
 
-		void createPolygon( Vec2f center, int nb_edges, float radius );
 		void createCube();
-
 
 	  private:
 
 		void _updateViewMatrix();
 		void _updateProjMatrix();
+		bool _initShaders();
 		void _initCamera();
 
 		// ================ Scene data.
@@ -60,9 +59,8 @@ namespace M3D_ISICG
 
 		Camera _camera;
 		float  _fov = 60;
-		bool _updateFov;
-		float  _cameraSpeed = 0.1;
-		float  _cameraSensitivity = 0.1;
+		float  _cameraSpeed = 0.1f;
+		float  _cameraSensitivity = 0.1f;
 
 		GLuint _uTransformMatrix;
 		GLuint _uViewMatrix;
@@ -71,11 +69,6 @@ namespace M3D_ISICG
 		Mesh _cube;
 
 		float _time;
-
-		std::vector<Vec2f> _points;
-		std::vector<Vec3f> _pointColors;
-		std::vector<Vec3i> _triangles;
-
 
 		// ================
 
